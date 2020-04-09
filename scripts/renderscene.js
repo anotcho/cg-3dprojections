@@ -83,8 +83,59 @@ function Animate(timestamp) {
 }
 
 // Main drawing code - use information contained in variable `scene`
+var i;
+var nper;
+var mper;
+var proj;
 function DrawScene() {
     console.log(scene);
+    nper = new Matrix(4,4);
+    mper = new Matrix(4,4);
+    proj = new Matrix(4,4);
+    proj.values = [[view.width/2, 0,             0, view.width/2],
+                   [0,            view.height/2, 0, view.height/2],
+                   [0,            0,             1, 0],
+                   [0,            0,             0, 1]];
+    if ( scene.view.type == 'perspective')
+    {
+        Mat4x4Projection(nper, scene.view.prp, scene.view.srp, scene.view.vup, scene.view.clip);
+        Mat4x4MPer(mper);
+    } else {
+        Mat4x4Parallel(nper, scene.view.prp, scene.view.srp, scene.view.vup, scene.view.clip);
+        Mat4x4MPar(mper);
+    }
+
+    var vert = [];
+    for(i = 0; i < scene.models.length; i++)
+    {
+        vert.push([]);
+        for(var j = 0; j < scene.models[i].vertices.length; j++) {
+            vert[i].push(Matrix.multiply([nper, scene.models[i].vertices[j]]));
+        }
+    }
+
+    for(var i = 0; i < scene.models.length; i++) {
+        for(var j = 0; j < scene.models[i].edges.length; j++) {
+            for(var k = 0; k < scene.models[i].edges[j].length - 1; k++) {
+                var ind0 = scene.models[i].edges[j][k];
+                var ind1 = scene.models[i].edges[j][k+1];
+                var line;
+  
+                if(scene.view.type === 'perspective'){
+                    line = clipPer(transformModelVert[i][ind0], transformModelVert[i][ind1]);
+                } else {
+                    line = clipPar(transformModelVert[i][ind0], transformModelVert[i][ind1]);
+                }
+  
+                if (line != null) {
+                    var pt0 = Matrix.multiply([proj, mper, line.pt0]);
+                    var pt1 = Matrix.multiply([proj, mper, line.pt1]);
+  
+                    drawLine(pt0, pt1, '#4287f5');
+                }
+            }
+        }
+    }
 }
 
 // Called when user selects a new scene JSON file
@@ -139,6 +190,24 @@ function OnKeyDown(event) {
     }
 }
 
+//draw line for points, not coords
+function drawLine(pt0, pt1, color) {
+    ctx.strokeStyle = color;
+    ctx.beginPath();
+    // Change to cartesian points
+    pt0.x = pt0.x/pt0.w;
+    pt0.y = pt0.y/pt0.w;
+    pt1.x = pt1.x/pt1.w;
+    pt1.y = pt1.y/pt1.w;
+    ctx.moveTo(pt0.x, pt0.y);
+    ctx.lineTo(pt1.x, pt1.y);
+    ctx.stroke();
+
+    ctx.fillStyle = '#000000';
+    ctx.fillRect(pt0.x - 3, pt0.y - 3, 6, 6);
+    ctx.fillRect(pt1.x - 3, pt1.y - 3, 6, 6);
+}
+
 // Draw black 2D line with red endpoints 
 function DrawLine(x1, y1, x2, y2) {
     ctx.strokeStyle = '#000000';
@@ -152,9 +221,9 @@ function DrawLine(x1, y1, x2, y2) {
     ctx.fillRect(x2 - 2, y2 - 2, 4, 4);
 }
 
-function OutcodePer(pt, view) {
+function OutcodePer(pt) {
     var outcode = 0;
-    var zmin = -1(view.clip[4]/view.clip[5]);
+    var zmin = -1(scene.view.clip[4]/scene.view.clip[5]);
     if (pt.x < pt.z) outcode += LEFT;
     else if (pt.x > -pt.z) outcode += RIGHT;
     if (pt.y < pt.z) outcode += BOTTOM;
@@ -164,7 +233,7 @@ function OutcodePer(pt, view) {
     return outcode;
 }
 
-function OutcodePar(pt, view) {
+function OutcodePar(pt) {
     var outcode = 0;
     if (pt.x < -1) outcode += LEFT;
     else if (pt.x > 1) outcode += RIGHT;
@@ -175,54 +244,56 @@ function OutcodePar(pt, view) {
     return outcode;
 }
 
-function percline(pt0, pt1, view) {
-    var at0 = OutcodePer(pt0, view);
-    var at1 = OutcodePer(pt1, view);
+function percline(pt0, pt1) {
+    var at0 = OutcodePer(pt0);
+    var at1 = OutcodePer(pt1);
 
     if ((at0 | at1) === 0) { // once both line endpoints are inside view, return the points
-        return { pt0: pt0, pt1: pt1 , pt2: pt2};
+        return { pt0: pt0, pt1: pt1};
     } else if ((at0 & at1) !== 0) { // if line is outside view, return null
         return null;
     } else {
-        var cp;
-        var hp;
-        var np = { x: 0, y: 0 , z: 0};
+        var cp = new Vector4();
+        var hp = new Vector4();
+        var np = new Vector4();
+        var rp;
         var t;
         var at;
 
         //get endpoint outside view
         if (at0 > 0) {
-            cp = pt0;
-            hp = pt1;
+            cp = new Vector4(pt0.x, pt0.y, pt0.z, pt0.w);
+            hp = new Vector4(pt1.x, pt1.y, pt1.z, pt1.w);
             at = at0;
         } else if (at1 > 0) {
-            cp = pt1;
-            hp = pt0;
+            cp = new Vector4(pt1.x, pt1.y, pt1.z, pt1.w);
+            hp = new Vector4(pt0.x, pt0.y, pt0.z, pt0.w);
             at = at1;
         }
 
         var xchange = (cp.x - hp.x);
         var ychange = (cp.y - hp.y);
         var zchange = (cp.z - hp.z);
+        var zMin = -1(schene.view.clip[4]/scene.view.clip[5]);
 
         //find first bit set to 1 and select view edge
         if ((at - 32) >= 0){
-            t = (view.clip[0] - cp.x) / xchange;
+            t = ( -cp.x+cp.z) / (xchange-zchange);
             at -= 32;
         } else if ((at - 16) >= 0){
-            t = (view.clip[1] - cp.x) / xchange;
+            t = ( cp.x+cp.z) / (-xchange-zchange);
             at -= 16;
         } else if ((at - 8) >= 0) {
-            t = (view.clip[2] - cp.y) / ychange;
+            t = ( -cp.y+cp.z) / (ychange-zchange);
             at -= 8;
         } else if ((at - 4) >= 0) {
-            t = (view.clip[3] - cp.y) / ychange;
+            t = (cp.y+cp.z) / (-ychange-zchange);
             at -= 4;
         } else if ((at - 2) >= 0) {
-            t = (view.clip[4] - cp.y) / ychange;
+            t = (cp.z-zMin) / (-zchange);
             at -= 2;
         } else {
-            t = (view.clip[5] - cp.y) / ychange;
+            t = (-endpt0.z-1) / (changeZ);
             at -= 1;
         }
 
@@ -231,8 +302,9 @@ function percline(pt0, pt1, view) {
         np.y = cp.y + t * ychange;
         np.z = cp.z + t * zchange;
 
+        rp = new Vector4(np.x, np.y, np.z, cp.w);
         //replace endpoint and loop recursively
-        return cline(np, hp, view);
+        return cline(rp, hp, view);
     }
 }
 
@@ -241,49 +313,51 @@ function parcline(pt0, pt1, view) {
     var at1 = OutcodePar(pt1, view);
 
     if ((at0 | at1) === 0) { // once both line endpoints are inside view, return the points
-        return { pt0: pt0, pt1: pt1 };
+        return { pt0: pt0, pt1: pt1};
     } else if ((at0 & at1) !== 0) { // if line is outside view, return null
         return null;
     } else {
-        var cp;
-        var hp;
-        var np = { x: 0, y: 0 , z: 0};
+        var cp = new Vector4();
+        var hp = new Vector4();
+        var np = new Vector4();
+        var rp;
         var t;
         var at;
 
         //get endpoint outside view
         if (at0 > 0) {
-            cp = pt0;
-            hp = pt1;
+            cp = new Vector4(pt0.x, pt0.y, pt0.z, pt0.w);
+            hp = new Vector4(pt1.x, pt1.y, pt1.z, pt1.w);
             at = at0;
         } else if (at1 > 0) {
-            cp = pt1;
-            hp = pt0;
+            cp = new Vector4(pt1.x, pt1.y, pt1.z, pt1.w);
+            hp = new Vector4(pt0.x, pt0.y, pt0.z, pt0.w);
             at = at1;
         }
 
         var xchange = (cp.x - hp.x);
         var ychange = (cp.y - hp.y);
         var zchange = (cp.z - hp.z);
+        var zMin = -1(schene.view.clip[4]/scene.view.clip[5]);
 
         //find first bit set to 1 and select view edge
         if ((at - 32) >= 0){
-            t = (view.clip[0] - cp.x) / xchange;
+            t = (-1 -cp.x) / xchange;
             at -= 32;
         } else if ((at - 16) >= 0){
-            t = (view.clip[1] - cp.x) / xchange;
+            t = (1 -cp.x) / xchange;
             at -= 16;
         } else if ((at - 8) >= 0) {
-            t = (view.clip[2] - cp.y) / ychange;
+            t = (-1 -cp.y) / ychange;
             at -= 8;
         } else if ((at - 4) >= 0) {
-            t = (view.clip[3] - cp.y) / ychange;
+            t = (1 -cp.y) / ychange;
             at -= 4;
         } else if ((at - 2) >= 0) {
-            t = (view.clip[4] - cp.y) / ychange;
+            t = (0 -cp.z) / zchange;
             at -= 2;
         } else {
-            t = (view.clip[5] - cp.y) / ychange;
+            t = (1 -cp.z) / zchange;
             at -= 1;
         }
 
@@ -292,7 +366,8 @@ function parcline(pt0, pt1, view) {
         np.y = cp.y + t * ychange;
         np.z = cp.z + t * zchange;
 
+        rp = new Vector4(np.x, np.y, np.z, cp.w);
         //replace endpoint and loop recursively
-        return cline(np, hp, view);
+        return cline(rp, hp, view);
     }
 }
