@@ -175,10 +175,70 @@ function OutcodePar(pt, view) {
     return outcode;
 }
 
-function percline(pt0, pt1, pt2, view) {
+function percline(pt0, pt1, view) {
     var at0 = OutcodePer(pt0, view);
     var at1 = OutcodePer(pt1, view);
-    var at2 = OutcodePer(pt1, view);
+
+    if ((at0 | at1) === 0) { // once both line endpoints are inside view, return the points
+        return { pt0: pt0, pt1: pt1 , pt2: pt2};
+    } else if ((at0 & at1) !== 0) { // if line is outside view, return null
+        return null;
+    } else {
+        var cp;
+        var hp;
+        var np = { x: 0, y: 0 , z: 0};
+        var t;
+        var at;
+
+        //get endpoint outside view
+        if (at0 > 0) {
+            cp = pt0;
+            hp = pt1;
+            at = at0;
+        } else if (at1 > 0) {
+            cp = pt1;
+            hp = pt0;
+            at = at1;
+        }
+
+        var xchange = (cp.x - hp.x);
+        var ychange = (cp.y - hp.y);
+        var zchange = (cp.z - hp.z);
+
+        //find first bit set to 1 and select view edge
+        if ((at - 32) >= 0){
+            t = (view.clip[0] - cp.x) / xchange;
+            at -= 32;
+        } else if ((at - 16) >= 0){
+            t = (view.clip[1] - cp.x) / xchange;
+            at -= 16;
+        } else if ((at - 8) >= 0) {
+            t = (view.clip[2] - cp.y) / ychange;
+            at -= 8;
+        } else if ((at - 4) >= 0) {
+            t = (view.clip[3] - cp.y) / ychange;
+            at -= 4;
+        } else if ((at - 2) >= 0) {
+            t = (view.clip[4] - cp.y) / ychange;
+            at -= 2;
+        } else {
+            t = (view.clip[5] - cp.y) / ychange;
+            at -= 1;
+        }
+
+        //find new point at view edge
+        np.x = cp.x + t * xchange;
+        np.y = cp.y + t * ychange;
+        np.z = cp.z + t * zchange;
+
+        //replace endpoint and loop recursively
+        return cline(np, hp, view);
+    }
+}
+
+function parcline(pt0, pt1, view) {
+    var at0 = OutcodePar(pt0, view);
+    var at1 = OutcodePar(pt1, view);
 
     if ((at0 | at1) === 0) { // once both line endpoints are inside view, return the points
         return { pt0: pt0, pt1: pt1 };
@@ -204,78 +264,33 @@ function percline(pt0, pt1, pt2, view) {
 
         var xchange = (cp.x - hp.x);
         var ychange = (cp.y - hp.y);
+        var zchange = (cp.z - hp.z);
 
         //find first bit set to 1 and select view edge
-        if ((at - 8) >= 0) {
-            t = (view.xmin - cp.x) / xchange;
+        if ((at - 32) >= 0){
+            t = (view.clip[0] - cp.x) / xchange;
+            at -= 32;
+        } else if ((at - 16) >= 0){
+            t = (view.clip[1] - cp.x) / xchange;
+            at -= 16;
+        } else if ((at - 8) >= 0) {
+            t = (view.clip[2] - cp.y) / ychange;
             at -= 8;
         } else if ((at - 4) >= 0) {
-            t = (view.xmax - cp.x) / xchange;
+            t = (view.clip[3] - cp.y) / ychange;
             at -= 4;
         } else if ((at - 2) >= 0) {
-            t = (view.ymin - cp.y) / ychange;
+            t = (view.clip[4] - cp.y) / ychange;
             at -= 2;
         } else {
-            t = (view.ymax - cp.y) / ychange;
+            t = (view.clip[5] - cp.y) / ychange;
             at -= 1;
         }
 
         //find new point at view edge
         np.x = cp.x + t * xchange;
         np.y = cp.y + t * ychange;
-
-        //replace endpoint and loop recursively
-        return cline(np, hp, view);
-    }
-}
-
-function parcline(pt0, pt1, view) {
-    var at0 = Outcode(pt0, view);
-    var at1 = Outcode(pt1, view);
-
-    if ((at0 | at1) === 0) { // once both line endpoints are inside view, return the points
-        return { pt0: pt0, pt1: pt1 };
-    } else if ((at0 & at1) !== 0) { // if line is outside view, return null
-        return null;
-    } else {
-        var cp;
-        var hp;
-        var np = { x: 0, y: 0 };
-        var t;
-        var at;
-
-        //get endpoint outside view
-        if (at0 > 0) {
-            cp = pt0;
-            hp = pt1;
-            at = at0;
-        } else if (at1 > 0) {
-            cp = pt1;
-            hp = pt0;
-            at = at1;
-        }
-
-        var xchange = (cp.x - hp.x);
-        var ychange = (cp.y - hp.y);
-
-        //find first bit set to 1 and select view edge
-        if ((at - 8) >= 0) {
-            t = (view.xmin - cp.x) / xchange;
-            at -= 8;
-        } else if ((at - 4) >= 0) {
-            t = (view.xmax - cp.x) / xchange;
-            at -= 4;
-        } else if ((at - 2) >= 0) {
-            t = (view.ymin - cp.y) / ychange;
-            at -= 2;
-        } else {
-            t = (view.ymax - cp.y) / ychange;
-            at -= 1;
-        }
-
-        //find new point at view edge
-        np.x = cp.x + t * xchange;
-        np.y = cp.y + t * ychange;
+        np.z = cp.z + t * zchange;
 
         //replace endpoint and loop recursively
         return cline(np, hp, view);
