@@ -28,7 +28,7 @@ function Mat4x4Parallel(mat4x4, prp, srp, vup, clip) {
     var viewscale = new Matrix(4,4);
     var sparx = 2/(clip[1]-clip[0]);
     var spary = 2/(clip[3]-clip[2]);
-    var sparz = 1/clip[5];
+    var sparz = 1/(clip[5]-clip[4]);
     Mat4x4Scale(viewscale, sparx, spary, sparz);
 
     // ...
