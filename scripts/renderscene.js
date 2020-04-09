@@ -152,20 +152,33 @@ function DrawLine(x1, y1, x2, y2) {
     ctx.fillRect(x2 - 2, y2 - 2, 4, 4);
 }
 
-function Outcode(pt, view) {
+function OutcodePer(pt, view) {
     var outcode = 0;
-    if (pt.x < (view.clip[0] - .0001)) outcode += LEFT;
-    else if (pt.x > (view.clip[1] + .0001)) outcode += RIGHT;
-    if (pt.y < (view.clip[2] - .0001)) outcode += BOTTOM;
-    else if (pt.y > (view.clip[3] + .0001)) outcode += TOP;
-    if (pt.z < (view.clip[4] -.0001)) outcode += NEAR;
-    else if (pt.z > (view.clip[5] + .0001)) outcode += FAR;
+    var zmin = -1(view.clip[4]/view.clip[5]);
+    if (pt.x < pt.z) outcode += LEFT;
+    else if (pt.x > -pt.z) outcode += RIGHT;
+    if (pt.y < pt.z) outcode += BOTTOM;
+    else if (pt.y > -pt.z) outcode += TOP;
+    if (pt.z < zmin) outcode += NEAR;
+    else if (pt.z > -1) outcode += FAR;
     return outcode;
 }
 
-function parcline(pt0, pt1, view) {
-    var at0 = Outcode(pt0, view);
-    var at1 = Outcode(pt1, view);
+function OutcodePar(pt, view) {
+    var outcode = 0;
+    if (pt.x < -1) outcode += LEFT;
+    else if (pt.x > 1) outcode += RIGHT;
+    if (pt.y < -1) outcode += BOTTOM;
+    else if (pt.y > 1) outcode += TOP;
+    if (pt.z < 0) outcode += NEAR;
+    else if (pt.z > -1) outcode += FAR;
+    return outcode;
+}
+
+function percline(pt0, pt1, pt2, view) {
+    var at0 = OutcodePer(pt0, view);
+    var at1 = OutcodePer(pt1, view);
+    var at2 = OutcodePer(pt1, view);
 
     if ((at0 | at1) === 0) { // once both line endpoints are inside view, return the points
         return { pt0: pt0, pt1: pt1 };
@@ -174,7 +187,7 @@ function parcline(pt0, pt1, view) {
     } else {
         var cp;
         var hp;
-        var np = { x: 0, y: 0 };
+        var np = { x: 0, y: 0 , z: 0};
         var t;
         var at;
 
@@ -216,7 +229,7 @@ function parcline(pt0, pt1, view) {
     }
 }
 
-function percline(pt0, pt1, view) {
+function parcline(pt0, pt1, view) {
     var at0 = Outcode(pt0, view);
     var at1 = Outcode(pt1, view);
 
