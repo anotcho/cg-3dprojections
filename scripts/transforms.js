@@ -6,7 +6,7 @@ function Mat4x4Parallel(mat4x4, prp, srp, vup, clip) {
     // 2. rotate VRC such that (u,v,n) align with (x,y,z)
     var rotatevrc = new Matrix(4,4);
     var n = prp.subtract(srp);
-    n = normalize();
+    n.normalize();
     var u = vup.cross(n);
     u.normalize();
     var v = n.cross(u);
@@ -16,8 +16,9 @@ function Mat4x4Parallel(mat4x4, prp, srp, vup, clip) {
                         [0, 0, 0, 1]];
     // 3. shear such that CW is on the z-axis
     var shearcw = new Matrix(4,4);
-    var cw = [(clip[0]+clip[1])/2, (clip[2]+clip[3])/2];
-    var DOP = cw.subtract(prp);
+    var cw = Vector3((clip[0] + clip[1]) / 2, (clip[2] + clip[3])/2, -clip[4]);
+    var DOP = cw;
+    DOP.normalize();
     var shx = -DOP.x/DOP.z;
     var shy = -DOP.y/DOP.z;
     Mat4x4ShearXY(shearcw, shx, shy);
@@ -33,7 +34,7 @@ function Mat4x4Parallel(mat4x4, prp, srp, vup, clip) {
 
     // ...
     var mult = [viewscale, transfc, shearcw, rotatevrc, transprp];
-    var transform = Matrix.multiply(multi);
+    var transform = Matrix.multiply(mult);
     mat4x4.values = transform.values;
 }
 
@@ -45,7 +46,7 @@ function Mat4x4Projection(mat4x4, prp, srp, vup, clip) {
     // 2. rotate VRC such that (u,v,n) align with (x,y,z)
     var rotatevrc = new Matrix(4,4);
     var n = prp.subtract(srp);
-    n = normalize();
+    n.normalize();
     var u = vup.cross(n);
     u.normalize();
     var v = n.cross(u);
@@ -55,8 +56,9 @@ function Mat4x4Projection(mat4x4, prp, srp, vup, clip) {
                         [0, 0, 0, 1]];
     // 3. shear such that CW is on the z-axis
     var shearcw = new Matrix(4,4);
-    var cw = [(clip[0]+clip[1])/2, (clip[2]+clip[3])/2];
-    var DOP = cw.subtract(prp);
+    var cw = Vector3((clip[0]+clip[1])/2, (clip[2]+clip[3])/2, -clip[4]);
+    var DOP = cw;
+    cw.normalize();
     var shx = -DOP.x/DOP.z;
     var shy = -DOP.y/DOP.z;
     Mat4x4ShearXY(shearcw, shx, shy);
@@ -68,7 +70,7 @@ function Mat4x4Projection(mat4x4, prp, srp, vup, clip) {
     Mat4x4Scale(viewscale, sparx, spary, sparz);
     // ...
     var mult = [viewscale, shearcw, rotatevrc, transprp];
-    var transform = Matrix.multiply(multi);
+    var transform = Matrix.multiply(mult);
     mat4x4.values = transform.values;
 }
 

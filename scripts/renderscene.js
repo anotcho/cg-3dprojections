@@ -20,13 +20,50 @@ function Init() {
     ctx = view.getContext('2d');
 
     // initial scene... feel free to change this
-    scene = {
+    /*scene = {
         view: {
             type: 'perspective',
             prp: Vector3(44, 20, -16),
             srp: Vector3(20, 20, -40),
             vup: Vector3(0, 1, 0),
             clip: [-19, 5, -10, 8, 12, 100]
+        },
+        models: [
+            {
+                type: 'generic',
+                vertices: [
+                    Vector4( 0,  0, -30, 1),
+                    Vector4(20,  0, -30, 1),
+                    Vector4(20, 12, -30, 1),
+                    Vector4(10, 20, -30, 1),
+                    Vector4( 0, 12, -30, 1),
+                    Vector4( 0,  0, -60, 1),
+                    Vector4(20,  0, -60, 1),
+                    Vector4(20, 12, -60, 1),
+                    Vector4(10, 20, -60, 1),
+                    Vector4( 0, 12, -60, 1)
+                ],
+                edges: [
+                    [0, 1, 2, 3, 4, 0],
+                    [5, 6, 7, 8, 9, 5],
+                    [0, 5],
+                    [1, 6],
+                    [2, 7],
+                    [3, 8],
+                    [4, 9]
+                ],
+                matrix: new Matrix(4, 4)
+            }
+        ]
+    };*/
+
+    scene = {
+        view: {
+          type: 'parallel',
+          prp: Vector3(44, 20, -16),
+          srp: Vector3(20, 20, -40),
+          vup: Vector3(0, 1, 0),
+          clip: [-19, 5, -10, 8, 12, 100]
         },
         models: [
             {
@@ -104,6 +141,7 @@ function DrawScene() {
         Mat4x4Parallel(nper, scene.view.prp, scene.view.srp, scene.view.vup, scene.view.clip);
         Mat4x4MPar(mper);
     }
+    console.log(nper, mper);
 
     var vert = [];
     for(i = 0; i < scene.models.length; i++)
@@ -122,16 +160,16 @@ function DrawScene() {
                 var line;
   
                 if(scene.view.type === 'perspective'){
-                    line = clipPer(transformModelVert[i][ind0], transformModelVert[i][ind1]);
+                    line = perclip(vert[i][ind0], vert[i][ind1]);
                 } else {
-                    line = clipPar(transformModelVert[i][ind0], transformModelVert[i][ind1]);
+                    line = parclip(vert[i][ind0], vert[i][ind1]);
                 }
   
                 if (line != null) {
                     var pt0 = Matrix.multiply([proj, mper, line.pt0]);
                     var pt1 = Matrix.multiply([proj, mper, line.pt1]);
   
-                    drawLine(pt0, pt1, '#4287f5');
+                    DrawLineP(pt0, pt1, '#4287f5');
                 }
             }
         }
@@ -176,22 +214,31 @@ function LoadNewScene() {
 function OnKeyDown(event) {
     switch (event.keyCode) {
         case 37: // LEFT Arrow
+            scene.view.prp.x = scene.view.prp.x - 1;
+            scene.view.srp.x = scene.view.srp.x - 1;
             console.log("left");
             break;
         case 38: // UP Arrow
+            scene.view.prp.y = scene.view.prp.y + 1;
+            scene.view.srp.y = scene.view.srp.y + 1;
             console.log("up");
             break;
         case 39: // RIGHT Arrow
+            scene.view.prp.x = scene.view.prp.x + 1;
+            scene.view.srp.x = scene.view.srp.x + 1;
             console.log("right");
             break;
         case 40: // DOWN Arrow
+            scene.view.prp.y = scene.view.prp.y - 1;
+            scene.view.srp.y = scene.view.srp.y - 1;
             console.log("down");
             break;
+
     }
 }
 
 //draw line for points, not coords
-function drawLine(pt0, pt1, color) {
+function DrawLineP(pt0, pt1, color) {
     ctx.strokeStyle = color;
     ctx.beginPath();
     // Change to cartesian points
@@ -223,28 +270,34 @@ function DrawLine(x1, y1, x2, y2) {
 
 function OutcodePer(pt) {
     var outcode = 0;
-    var zmin = -1(scene.view.clip[4]/scene.view.clip[5]);
+    var zMin = -scene.view.clip[4]/scene.view.clip[5];
+
     if (pt.x < pt.z) outcode += LEFT;
     else if (pt.x > -pt.z) outcode += RIGHT;
     if (pt.y < pt.z) outcode += BOTTOM;
     else if (pt.y > -pt.z) outcode += TOP;
-    if (pt.z < zmin) outcode += NEAR;
-    else if (pt.z > -1) outcode += FAR;
+    if (pt.z > zMin) outcode += NEAR;
+    else if (pt.z < -1) outcode += FAR;
+
     return outcode;
 }
 
 function OutcodePar(pt) {
     var outcode = 0;
+
     if (pt.x < -1) outcode += LEFT;
     else if (pt.x > 1) outcode += RIGHT;
     if (pt.y < -1) outcode += BOTTOM;
     else if (pt.y > 1) outcode += TOP;
-    if (pt.z < 0) outcode += NEAR;
-    else if (pt.z > -1) outcode += FAR;
+    if (pt.z > 0) outcode += NEAR;
+    else if (pt.z < -1) outcode += FAR;
+
     return outcode;
 }
 
-function percline(pt0, pt1) {
+//recursion sucks
+
+/*function percline(pt0, pt1) {
     var at0 = OutcodePer(pt0);
     var at1 = OutcodePer(pt1);
 
@@ -274,7 +327,7 @@ function percline(pt0, pt1) {
         var xchange = (cp.x - hp.x);
         var ychange = (cp.y - hp.y);
         var zchange = (cp.z - hp.z);
-        var zMin = -1(schene.view.clip[4]/scene.view.clip[5]);
+        var zMin = -1 * (schene.view.clip[4]/scene.view.clip[5]);
 
         //find first bit set to 1 and select view edge
         if ((at - 32) >= 0){
@@ -293,7 +346,7 @@ function percline(pt0, pt1) {
             t = (cp.z-zMin) / (-zchange);
             at -= 2;
         } else {
-            t = (-endpt0.z-1) / (changeZ);
+            t = (-ep0.z-1) / (changeZ);
             at -= 1;
         }
 
@@ -338,7 +391,7 @@ function parcline(pt0, pt1, view) {
         var xchange = (cp.x - hp.x);
         var ychange = (cp.y - hp.y);
         var zchange = (cp.z - hp.z);
-        var zMin = -1(schene.view.clip[4]/scene.view.clip[5]);
+        var zMin = -1 * (schene.view.clip[4]/scene.view.clip[5]);
 
         //find first bit set to 1 and select view edge
         if ((at - 32) >= 0){
@@ -370,4 +423,116 @@ function parcline(pt0, pt1, view) {
         //replace endpoint and loop recursively
         return cline(rp, hp, view);
     }
+}*/
+
+function parclip(pt0, pt1) {
+    var end = false;
+    var result = null;
+    var ep0 = new Vector4(pt0.x, pt0.y, pt0.z, pt0.w);
+    var ep1 = new Vector4(pt1.x, pt1.y, pt1.z, pt1.w);
+    var out0;
+    var out1;
+    var changeout;
+    var t;
+    while(!end) {
+        out0 = OutcodePar(ep0);
+        out1 = OutcodePar(ep1);
+
+        if((out0 | out1) === 0) {
+            end = true;
+            result = {pt0: ep0, pt1: ep1};
+        } else if((out0 & out1) !== 0) {
+            end = true;
+        } else {
+            if(out0 !== 0) {
+                changeout = out0;
+            } else {
+                changeout = out1;
+            }
+
+            if(changeout >= LEFT) {
+                t = (-1 - ep0.x) / (ep1.x - ep0.x);
+            }
+            else if(changeout >= RIGHT) {
+                t = (1 - ep0.x) / (ep1.x - ep0.x);
+            } else if(changeout >= BOTTOM) {
+                t = (-1 - ep0.y) / (ep1.y - ep0.y);
+            } else if(changeout >= TOP){
+                t = (1 - ep0.y) / (ep1.y - ep0.y);
+            } else if(changeout >= NEAR) {
+                t = (0 - ep0.z) / (ep1.z - ep0.z);
+            } else {
+                t = (-1 - ep0.z) / (ep1.z - ep0.z);
+            }
+
+            if(changeout === out0) {
+                ep0.x = ep0.x + t * (ep1.x - ep0.x);
+                ep0.y = ep0.y + t * (ep1.y - ep0.y);
+                ep0.z = ep0.z + t * (ep1.z - ep0.z);
+            } else {
+                ep1.x = ep0.x + t * (ep1.x - ep0.x);
+                ep1.y = ep0.y + t * (ep1.y - ep0.y);
+                ep1.z = ep0.z + t * (ep1.z - ep0.z);
+            }
+        }
+    }
+    return result;
 }
+
+function perclip(pt0, pt1) {
+    var done = false;
+    var result = null;
+    var ep0 = new Vector4(pt0.x, pt0.y, pt0.z, pt0.w);
+    var ep1 = new Vector4(pt1.x, pt1.y, pt1.z, pt1.w);
+    var out0;
+    var out1;
+    var changeout;
+    var t;
+    while(!done) {
+        out0 = OutcodePer(ep0);
+        out1 = OutcodePer(ep1);
+        if((out0 | out1) === 0) {
+            done = true;
+            result = {pt0: ep0, pt1: ep1};
+        } else if((out0 & out1) !== 0) {
+            done = true;
+        } else {
+            if(out0 !== 0) {
+                changeout = out0;
+            } else {
+                changeout = out1;
+            }
+
+            var changeX = ep1.x-ep0.x;
+            var changeY = ep1.y-ep0.y;
+            var changeZ = ep1.z-ep0.z;
+            var zMin = -scene.view.clip[4]/scene.view.clip[5];
+
+            if(changeout >= LEFT) {
+                t = ( -ep0.x+ep0.z) / (changeX-changeZ);
+            } else if(changeout >= RIGHT) {
+                t = ( ep0.x+ep0.z) / (-changeX-changeZ);
+            } else if(changeout >= BOTTOM) {
+                t = ( -ep0.y+ep0.z) / (changeY-changeZ);
+            } else if(changeout >= TOP){
+                t = (ep0.y+ep0.z) / (-changeY-changeZ);
+            } else if(changeout >= NEAR) {
+                t = (ep0.z-zMin) / (-changeZ);
+            } else {
+                t = (-ep0.z-1) / (changeZ);
+            }
+
+            if(changeout === out0) {
+                ep0.x = ep0.x + t * (ep1.x - ep0.x);
+                ep0.y = ep0.y + t * (ep1.y - ep0.y);
+                ep0.z = ep0.z + t * (ep1.z - ep0.z);
+            } else {
+                ep1.x = ep0.x + t * (ep1.x - ep0.x);
+                ep1.y = ep0.y + t * (ep1.y - ep0.y);
+                ep1.z = ep0.z + t * (ep1.z - ep0.z);
+            }
+        }
+    }
+    return result;
+}
+
